@@ -77,6 +77,9 @@ class RpsEditPage extends Component
             'minggu_ke' => [], 
         ];
         
+        // Memaksa Livewire untuk re-render komponen
+        $this->skipRender = false;
+        
         // Dispatch event ke frontend untuk reinisialisasi Select2
         $this->dispatch('rowAdded');
     }
@@ -88,9 +91,18 @@ class RpsEditPage extends Component
         unset($this->topics[$index]);
         $this->topics = array_values($this->topics); // Re-index array
         
+        // Memaksa Livewire untuk re-render komponen
+        $this->skipRender = false;
+        
         // Dispatch event ke frontend untuk reinisialisasi Select2
         $this->dispatch('rowRemoved');
-    }  
+    }
+
+    // Method untuk debugging - bisa dihapus nanti
+    public function getTopicsCount()
+    {
+        return count($this->topics);
+    }
 
     public function saveRps() {
     $this->validate([

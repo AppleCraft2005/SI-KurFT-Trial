@@ -104,8 +104,8 @@
                                     <input type="number" wire:model="topics.{{$index}}.bobot_penilaian" id="bobot_penilaian"  class="border"></input>
                                 </td>
                                 <td>
-                                    <div wire:ignore>
-                                        <select class="select2-weeks" multiple="multiple" data-index="{{ $index }}" id="">
+                                    <div wire:ignore.self>
+                                        <select class="select2-weeks" multiple="multiple" data-index="{{ $index }}" wire:key="select-weeks-{{ $index }}">
                                             @for ($i = 1 ; $i <= 16 ; $i++)
                                                 <option value="{{$i}}" {{ in_array($i, $topic['minggu_ke']) ? 'selected' : '' }}> {{$i}} </option>
                                             @endfor
@@ -114,7 +114,9 @@
                                     @error('topics.'.$index.'.minggu_ke') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
                                 </td>
                                 <td>
-                                    <button type="button" wire:click="removeRow({{ $index }})" class="text-red-600 hover:text-red-800 font-bold">
+                                    <button type="button" 
+                                            class="text-red-600 hover:text-red-800 font-bold btn-remove-row"
+                                            data-index="{{ $index }}">
                                         Hapus
                                     </button>                                
                                 </td>
@@ -173,8 +175,12 @@
                 $('.select2-weeks').select2({
                     placeholder: "Pilih Minggu",
                     allowClear: true,
-                    width: '100%'
+                    width: '100%',
+                    dropdownParent: $('body') // Perbaikan untuk dropdown positioning
                 }).off('change.livewire').on('change.livewire', function (e) {
+                    // Stop event propagation untuk mencegah konflik
+                    e.stopPropagation();
+                    
                     // Ambil index dari atribut data-index
                     const index = $(this).data('index');
                     // Kirim data yang dipilih ke properti Livewire yang benar
@@ -220,6 +226,18 @@
                 setTimeout(() => {
                     initWeekSelects();
                 }, 200);
+            });
+
+            // Event delegation untuk button remove - mencegah konflik dengan Select2
+            $(document).on('click', '.btn-remove-row', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const index = $(this).data('index');
+                // Pastikan ini tidak bentrok dengan Select2 events
+                setTimeout(() => {
+                    @this.call('removeRow', index);
+                }, 50);
             });
         });
     </script>
