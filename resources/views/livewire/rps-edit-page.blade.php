@@ -162,11 +162,19 @@
 
             // untuk multiselect minggu-ke
             function initWeekSelects() {
-                // Target semua select dengan class 'select2-weeks'
+                // Hapus semua instance Select2 yang sudah ada untuk mencegah duplikasi
+                $('.select2-weeks').each(function() {
+                    if ($(this).hasClass('select2-hidden-accessible')) {
+                        $(this).select2('destroy');
+                    }
+                });
+                
+                // Inisialisasi ulang semua select2-weeks
                 $('.select2-weeks').select2({
                     placeholder: "Pilih Minggu",
-                    allowClear: true
-                }).on('change', function (e) {
+                    allowClear: true,
+                    width: '100%'
+                }).off('change.livewire').on('change.livewire', function (e) {
                     // Ambil index dari atribut data-index
                     const index = $(this).data('index');
                     // Kirim data yang dipilih ke properti Livewire yang benar
@@ -185,8 +193,33 @@
                 cplSelect.val(cplIds).trigger('change');
             });
 
+            // Perbaikan utama: Gunakan kombinasi event hooks untuk memastikan Select2 terinisialisasi
             Livewire.hook('morph.updated', (el, component) => {
-                initWeekSelects();
+                // Delay sedikit untuk memastikan DOM sudah terupdate
+                setTimeout(() => {
+                    initWeekSelects();
+                }, 100);
+            });
+
+            // Tambahan: Hook untuk setelah request selesai (setelah addRow dipanggil)
+            Livewire.hook('request.finished', (response, payload) => {
+                setTimeout(() => {
+                    initWeekSelects();
+                }, 150);
+            });
+
+            // Event listener khusus untuk penambahan baris baru
+            Livewire.on('rowAdded', () => {
+                setTimeout(() => {
+                    initWeekSelects();
+                }, 200);
+            });
+
+            // Event listener untuk penghapusan baris
+            Livewire.on('rowRemoved', () => {
+                setTimeout(() => {
+                    initWeekSelects();
+                }, 200);
             });
         });
     </script>

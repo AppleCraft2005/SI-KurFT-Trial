@@ -76,6 +76,9 @@ class RpsEditPage extends Component
             'bobot_penilaian' => 0,
             'minggu_ke' => [], 
         ];
+        
+        // Dispatch event ke frontend untuk reinisialisasi Select2
+        $this->dispatch('rowAdded');
     }
 
     public function removeRow($index) {
@@ -84,6 +87,9 @@ class RpsEditPage extends Component
         }
         unset($this->topics[$index]);
         $this->topics = array_values($this->topics); // Re-index array
+        
+        // Dispatch event ke frontend untuk reinisialisasi Select2
+        $this->dispatch('rowRemoved');
     }  
 
     public function saveRps() {
@@ -103,6 +109,16 @@ class RpsEditPage extends Component
         'materi_pembelajaran' => 'nullable|string',
         'pustaka_utama' => 'nullable|string',
         'pustaka_pendukung' => 'nullable|string',
+    ], [
+        'topics.*.id_sub_cpmk.required' => 'Setiap topik harus memiliki Sub-CPMK.',
+        'topics.*.materi_pembelajaran.required' => 'Setiap topik harus memiliki materi pembelajaran.',
+        'topics.*.metode_pembelajaran.required' => 'Setiap topik harus memiliki metode pembelajaran.',
+        'topics.*.bobot_penilaian.required' => 'Setiap topik harus memiliki bobot penilaian.',
+        'topics.*.bobot_penilaian.min' => 'Bobot penilaian minimal 0.',
+        'topics.*.bobot_penilaian.max' => 'Bobot penilaian maksimal 100.',
+        'topics.*.minggu_ke.min' => 'Setiap topik harus dijadwalkan setidaknya untuk satu minggu. Silakan pilih minggu dari dropdown.',
+        'id_bk.required' => 'Bahan kajian harus dipilih.',
+        'cpl_ids.required' => 'CPL yang dibebankan harus dipilih minimal satu.',
     ]);
 
     // protected $messages = [
