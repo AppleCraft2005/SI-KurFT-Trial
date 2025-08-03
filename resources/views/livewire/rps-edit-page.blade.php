@@ -191,7 +191,10 @@
                         allowClear: true,
                         width: '100%',
                         dropdownParent: $('body')
-                    }).off('change.weekselect').on('change.weekselect', function (e) {
+                    });
+                    
+                    // Hapus event listener lama dan tambah yang baru dengan namespace unik
+                    $select.off('change.weekselect' + index).on('change.weekselect' + index, function (e) {
                         e.stopPropagation();
                         const currentIndex = $(this).data('index');
                         const values = $(this).val() || [];
@@ -211,92 +214,98 @@
                 cplSelect.val(cplIds).trigger('change');
             });
 
-            // Hook untuk setiap perubahan DOM - lebih agresif
-            Livewire.hook('morph.updated', (el, component) => {
-                console.log('DOM morphed, reinitializing...');
-                setTimeout(() => {
-                    initWeekSelects();
-                }, 50);
-            });
-            
-            // Hook setelah request selesai
-            Livewire.hook('request.finished', (response, payload) => {
-                console.log('Request finished, reinitializing...');
-                setTimeout(() => {
+            // Throttle function untuk mencegah spam
+            let initTimeout;
+            function throttledInitWeekSelects() {
+                clearTimeout(initTimeout);
+                initTimeout = setTimeout(() => {
                     initWeekSelects();
                 }, 100);
-            });
+            }
 
-            // Hook setelah commit (paling akhir)
-            Livewire.hook('commit', (component, response) => {
-                console.log('Commit hook triggered...');
-                setTimeout(() => {
-                    initWeekSelects();
-                }, 150);
+            // Hook untuk setiap perubahan DOM - dengan throttling
+            Livewire.hook('morph.updated', (el, component) => {
+                console.log('DOM morphed, scheduling reinit...');
+                throttledInitWeekSelects();
             });
 
             // Event listener khusus untuk penambahan baris baru
-            Livewire.on('rowAdded', () => {
-                console.log('Row added event received');
-                setTimeout(() => {
-                    initWeekSelects();
-                }, 200);
+            Livewire.on('rowAdded', (data) => {
+                console.log('Row added event received, count:', data.count);
+                throttledInitWeekSelects();
             });
 
             // Event listener untuk penghapusan baris
-            Livewire.on('rowRemoved', () => {
-                console.log('Row removed event received');
-                setTimeout(() => {
-                    initWeekSelects();
-                }, 200);
+            Livewire.on('rowRemoved', (data) => {
+                console.log('Row removed event received, count:', data.count);
+                throttledInitWeekSelects();
             });
 
-            // Fallback: Polling untuk memastikan Select2 terinisialisasi
+            // Reduced polling - hanya setiap 3 detik
             setInterval(() => {
                 const uninitializedSelects = $('.select2-weeks').not('.select2-hidden-accessible');
                 if (uninitializedSelects.length > 0) {
-                    console.log('Found uninitialized selects, initializing...');
-                    initWeekSelects();
+                    console.log('Found', uninitializedSelects.length, 'uninitialized selects');
+                    throttledInitWeekSelects();
                 }
-            }, 1000);
+            }, 3000);
 
-            // Event delegation untuk button remove - mencegah konflik dengan Select2
-            $(document).on('click', '.btn-remove-row', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                const index = $(this).data('index');
-                console.log('Remove button clicked for index:', index);
-                
-                // Pastikan ini tidak bentrok dengan Select2 events
-                setTimeout(() => {
-                    @this.call('removeRow', index);
-                }, 50);
-            });
+            // Event delegation untuk button remove - HANYA SEKALI di luar semua function
+            let removeEventBound = false;
+            
+            function bindRemoveEvents() {
+                if (!removeEventBound) {
+                    $(document).on('click.removeRow', '.btn-remove-row', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        const index = $(this).data('index');
+                        console.log('Remove button clicked for index:', index);
+                        
+                        // Pastikan ini tidak bentrok dengan Select2 events
+                        @this.call('removeRow', index);
+                    });
+                    removeEventBound = true;
+                    console.log('Remove event listener bound');
+                }
+            }
+            
+            // Bind remove events hanya sekali
+            bindRemoveEvents();
 
-            // Debug: Monitor DOM changes
+            // Simplified observer - hanya untuk debugging
             const observer = new MutationObserver(function(mutations) {
+                let hasTableChanges = false;
                 mutations.forEach(function(mutation) {
                     if (mutation.type === 'childList') {
                         const addedNodes = Array.from(mutation.addedNodes);
                         const removedNodes = Array.from(mutation.removedNodes);
                         
                         if (addedNodes.some(node => node.nodeType === 1 && (node.matches?.('tr[wire\\:key*="topic-"]') || node.querySelector?.('tr[wire\\:key*="topic-"]')))) {
-                            console.log('New table row detected');
-                            setTimeout(() => initWeekSelects(), 100);
+                            console.log('New table row detected via observer');
+                            hasTableChanges = true;
                         }
                         
                         if (removedNodes.some(node => node.nodeType === 1 && (node.matches?.('tr[wire\\:key*="topic-"]') || node.querySelector?.('tr[wire\\:key*="topic-"]')))) {
-                            console.log('Table row removed');
+                            console.log('Table row removed via observer');
+                            hasTableChanges = true;
                         }
                     }
                 });
+                
+                // Trigger init hanya jika ada perubahan table yang relevan
+                if (hasTableChanges) {
+                    throttledInitWeekSelects();
+                }
             });
             
-            // Start observing
-            observer.observe(document.querySelector('tbody'), {
-                childList: true,
-                subtree: true
-            });
+            // Start observing table body only
+            const tableBody = document.querySelector('tbody');
+            if (tableBody) {
+                observer.observe(tableBody, {
+                    childList: true,
+                    subtree: false // Tidak perlu deep observation
+                });
+            }
         });
     </script>
