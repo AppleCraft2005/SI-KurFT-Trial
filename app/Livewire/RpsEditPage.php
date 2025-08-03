@@ -33,6 +33,9 @@ class RpsEditPage extends Component
     public $allCpl = [];
     public $allBahanKajian = [];
     public $allMataKuliah = [];
+    
+    // Property untuk memaksa re-render jika diperlukan
+    public $forceRefresh = 0;
 
     public function mount(RPSModel $rps) {
         $this->rps = $rps;
@@ -77,11 +80,14 @@ class RpsEditPage extends Component
             'minggu_ke' => [], 
         ];
         
-        // Memaksa Livewire untuk re-render komponen
-        $this->skipRender = false;
-        
         // Dispatch event ke frontend untuk reinisialisasi Select2
         $this->dispatch('rowAdded');
+        
+        // Refresh komponen untuk memastikan DOM ter-update
+        $this->dispatch('$refresh');
+        
+        // Backup: increment property untuk trigger re-render
+        $this->forceRefresh++;
     }
 
     public function removeRow($index) {
@@ -91,11 +97,14 @@ class RpsEditPage extends Component
         unset($this->topics[$index]);
         $this->topics = array_values($this->topics); // Re-index array
         
-        // Memaksa Livewire untuk re-render komponen
-        $this->skipRender = false;
-        
         // Dispatch event ke frontend untuk reinisialisasi Select2
         $this->dispatch('rowRemoved');
+        
+        // Refresh komponen untuk memastikan DOM ter-update
+        $this->dispatch('$refresh');
+        
+        // Backup: increment property untuk trigger re-render
+        $this->forceRefresh++;
     }
 
     // Method untuk debugging - bisa dihapus nanti
