@@ -278,9 +278,39 @@
                 console.log('Expected rows:', data.count, 'Current DOM rows:', $('tr[wire\\:key*="topic-"]').length);
                 
                 setTimeout(() => {
+                    // Setelah penghapusan, update semua data-index yang mungkin berubah
+                    updateAllIndexes();
                     initWeekSelects();
                 }, 200);
             });
+
+            // Function untuk update indexes setelah re-indexing di backend
+            function updateAllIndexes() {
+                console.log('Updating all indexes after re-indexing...');
+                
+                $('tr[wire\\:key*="topic-"]').each(function(newIndex) {
+                    const $row = $(this);
+                    
+                    // Update data-index pada semua element dalam baris ini
+                    $row.find('[data-index]').each(function() {
+                        const $element = $(this);
+                        const oldIndex = $element.data('index');
+                        
+                        if (oldIndex !== newIndex) {
+                            console.log(`Updating index from ${oldIndex} to ${newIndex}`);
+                            $element.attr('data-index', newIndex);
+                            $element.data('index', newIndex);
+                            
+                            // Update ID jika ada
+                            if ($element.attr('id')) {
+                                const oldId = $element.attr('id');
+                                const newId = oldId.replace(/\d+/, newIndex);
+                                $element.attr('id', newId);
+                            }
+                        }
+                    });
+                });
+            }
 
             // Reduced polling - hanya setiap 3 detik
             setInterval(() => {
@@ -300,11 +330,19 @@
                         e.preventDefault();
                         e.stopPropagation();
                         
-                        const index = $(this).data('index');
-                        console.log('Remove button clicked for index:', index);
+                        // Dapatkan index dari DOM position untuk memastikan akurasi
+                        const $button = $(this);
+                        const $row = $button.closest('tr[wire\\:key*="topic-"]');
+                        const actualIndex = $row.index();
+                        const dataIndex = $button.data('index');
                         
-                        // Pastikan ini tidak bentrok dengan Select2 events
-                        @this.call('removeRow', index);
+                        console.log('Remove button clicked:');
+                        console.log('- Data index:', dataIndex);
+                        console.log('- Actual DOM index:', actualIndex);
+                        console.log('- Row key:', $row.attr('wire:key'));
+                        
+                        // Gunakan actual index dari DOM position
+                        @this.call('removeRow', actualIndex);
                     });
                     removeEventBound = true;
                     console.log('Remove event listener bound');
