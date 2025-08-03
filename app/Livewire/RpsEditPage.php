@@ -88,10 +88,29 @@ class RpsEditPage extends Component
         $this->select2NeedsReinit = true;
         
         // Log untuk debugging
-        logger()->info('Row added. Total topics: ' . count($this->topics));
+        logger()->info('Row added. Total topics: ' . count($this->topics) . ' ForceRefresh: ' . $this->forceRefresh);
         
-        // Delay dispatch untuk memastikan DOM ter-update dulu
+        // Force re-render dengan multiple cara
+        $this->skipRender = false;
         $this->dispatch('rowAdded', ['count' => count($this->topics)]);
+        $this->dispatch('$refresh');
+    }
+
+    // Method untuk test manual - tambah baris sederhana
+    public function testAddRow() {
+        $this->topics[] = [
+            'id_topic' => null, 
+            'id_sub_cpmk' => '',
+            'indikator' => 'Test Row ' . (count($this->topics) + 1),
+            'kriteria_teknik_penilaian' => '',
+            'metode_pembelajaran' => '',
+            'materi_pembelajaran' => '',
+            'bobot_penilaian' => 0,
+            'minggu_ke' => [], 
+        ];
+        
+        $this->forceRefresh = time(); // Force dengan timestamp
+        logger()->info('Test row added. Total: ' . count($this->topics));
     }
 
     public function removeRow($index) {
@@ -210,6 +229,13 @@ class RpsEditPage extends Component
 
     public function render()
     {
+        // Debug: Log data yang dikirim ke view
+        logger()->info('Rendering RpsEditPage', [
+            'topics_count' => count($this->topics),
+            'forceRefresh' => $this->forceRefresh,
+            'topics_data' => array_keys($this->topics)
+        ]);
+        
         return view('livewire.rps-edit-page');
     }
 

@@ -77,7 +77,7 @@
                     </thead>
                     <tbody>
                         @forelse ($topics as $index => $topic )
-                            <tr wire:key="topic-{{ $index }}">
+                            <tr wire:key="topic-{{ $index }}-{{ $forceRefresh }}-{{ count($topics) }}">
                                 <td class="p-2 border" >
                                     <label for="">SubCpmk</label>
                                     <select wire:model="topics.{{ $index }}.id_sub_cpmk" >
@@ -104,13 +104,15 @@
                                     <input type="number" wire:model="topics.{{$index}}.bobot_penilaian" id="bobot_penilaian"  class="border"></input>
                                 </td>
                                 <td>
-                                    <div wire:key="select-container-{{ $index }}-{{ $forceRefresh }}">
-                                        <select class="select2-weeks" multiple="multiple" data-index="{{ $index }}" id="select-weeks-{{ $index }}">
-                                            @for ($i = 1 ; $i <= 16 ; $i++)
-                                                <option value="{{$i}}" {{ in_array($i, $topic['minggu_ke']) ? 'selected' : '' }}> {{$i}} </option>
-                                            @endfor
-                                        </select>
-                                    </div>
+                                    <select class="select2-weeks" 
+                                            multiple="multiple" 
+                                            data-index="{{ $index }}" 
+                                            id="select-weeks-{{ $index }}-{{ $forceRefresh }}"
+                                            wire:key="select-weeks-{{ $index }}-{{ $forceRefresh }}">
+                                        @for ($i = 1 ; $i <= 16 ; $i++)
+                                            <option value="{{$i}}" {{ in_array($i, $topic['minggu_ke']) ? 'selected' : '' }}> {{$i}} </option>
+                                        @endfor
+                                    </select>
                                     @error('topics.'.$index.'.minggu_ke') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
                                 </td>
                                 <td>
@@ -129,14 +131,21 @@
             </div>
 
             <div class="mt-4 flex justify-between">
-                <button type="button" wire:click="addRow" class="bg-blue-500 text-white px-4 py-2 rounded">Tambah Baris</button>
-                <button type="button" wire:click="debugTopics" class="bg-yellow-500 text-white px-4 py-2 rounded">Debug</button>
+                <div class="flex gap-2">
+                    <button type="button" wire:click="addRow" class="bg-blue-500 text-white px-4 py-2 rounded">Tambah Baris</button>
+                    <button type="button" wire:click="testAddRow" class="bg-purple-500 text-white px-4 py-2 rounded">Test Add</button>
+                    <button type="button" wire:click="debugTopics" class="bg-yellow-500 text-white px-4 py-2 rounded">Debug</button>
+                </div>
                 <button type="submit" class="bg-green-600 text-white px-6 py-2 rounded">Simpan Rencana Mingguan</button>
             </div>
             
             <!-- Debug info -->
             <div class="mt-2 text-sm text-gray-600">
                 Topics count: {{ count($topics) }} | Force Refresh: {{ $forceRefresh }}
+                <br>
+                Topics indexes: {{ implode(', ', array_keys($topics)) }}
+                <br>
+                Last topic ID: {{ end($topics)['id_topic'] ?? 'null' }}
             </div>         
         </form>
     </div>
@@ -232,6 +241,7 @@
             // Event listener khusus untuk penambahan baris baru
             Livewire.on('rowAdded', (data) => {
                 console.log('Row added event received, count:', data.count);
+                console.log('Current DOM rows count:', $('tr[wire\\:key*="topic-"]').length);
                 throttledInitWeekSelects();
             });
 
