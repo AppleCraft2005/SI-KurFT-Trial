@@ -115,8 +115,8 @@
                                 </td>
                                 <td>
                                     <button type="button" 
-                                            class="text-red-600 hover:text-red-800 font-bold btn-remove-row"
-                                            data-index="{{ $index }}">
+                                            data-index="{{ $index }}" 
+                                            class="text-red-600 hover:text-red-800 font-bold btn-remove-row">
                                         Hapus
                                     </button>                                
                                 </td>
