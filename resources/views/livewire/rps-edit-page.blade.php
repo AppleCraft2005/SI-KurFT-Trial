@@ -104,13 +104,20 @@
                                     <input type="number" wire:model="topics.{{$index}}.bobot_penilaian" id="bobot_penilaian"  class="border"></input>
                                 </td>
                                 <td>
+                                    <!-- Hidden input untuk Livewire -->
+                                    <input type="hidden" 
+                                           wire:model="topics.{{ $index }}.minggu_ke" 
+                                           class="minggu-ke-hidden" 
+                                           data-index="{{ $index }}">
+                                    
+                                    <!-- Select2 yang di-handle JavaScript -->
                                     <select class="select2-weeks" 
                                             multiple="multiple" 
                                             data-index="{{ $index }}" 
-                                            id="select-weeks-{{ $index }}-{{ $forceRefresh }}"
-                                            wire:key="select-weeks-{{ $index }}-{{ $forceRefresh }}">
+                                            data-selected="{{ implode(',', $topic['minggu_ke']) }}"
+                                            id="select-weeks-{{ $index }}">
                                         @for ($i = 1 ; $i <= 16 ; $i++)
-                                            <option value="{{$i}}" {{ in_array($i, $topic['minggu_ke']) ? 'selected' : '' }}> {{$i}} </option>
+                                            <option value="{{$i}}">{{$i}}</option>
                                         @endfor
                                     </select>
                                     @error('topics.'.$index.'.minggu_ke') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
@@ -179,7 +186,7 @@
 
             // untuk multiselect minggu-ke
             function initWeekSelects() {
-                console.log('Initializing week selects...');
+                console.log('Initializing week selects...', $('.select2-weeks').length, 'elements found');
                 
                 // Hapus semua instance Select2 yang sudah ada untuk mencegah duplikasi
                 $('.select2-weeks').each(function() {
@@ -188,13 +195,15 @@
                     }
                 });
                 
-                // Inisialisasi hanya yang belum ter-inisialisasi
-                $('.select2-weeks').not('.select2-hidden-accessible').each(function() {
+                // Inisialisasi semua select2-weeks
+                $('.select2-weeks').each(function() {
                     const $select = $(this);
                     const index = $select.data('index');
+                    const selectedData = $select.data('selected');
                     
-                    console.log('Initializing select for index:', index);
+                    console.log('Initializing select for index:', index, 'selected:', selectedData);
                     
+                    // Initialize Select2
                     $select.select2({
                         placeholder: "Pilih Minggu",
                         allowClear: true,
@@ -202,12 +211,25 @@
                         dropdownParent: $('body')
                     });
                     
-                    // Hapus event listener lama dan tambah yang baru dengan namespace unik
-                    $select.off('change.weekselect' + index).on('change.weekselect' + index, function (e) {
+                    // Set selected values from data attribute
+                    if (selectedData) {
+                        const selectedValues = selectedData.split(',').filter(v => v.trim() !== '');
+                        $select.val(selectedValues).trigger('change.select2');
+                    }
+                    
+                    // Event handler untuk sync dengan hidden input
+                    $select.off('change.weekselect').on('change.weekselect', function (e) {
                         e.stopPropagation();
                         const currentIndex = $(this).data('index');
                         const values = $(this).val() || [];
+                        
                         console.log('Week select changed for index:', currentIndex, 'values:', values);
+                        
+                        // Update hidden input
+                        const $hiddenInput = $(`.minggu-ke-hidden[data-index="${currentIndex}"]`);
+                        $hiddenInput.val(JSON.stringify(values)).trigger('input');
+                        
+                        // Also update Livewire directly
                         @this.set('topics.' + currentIndex + '.minggu_ke', values);
                     });
                 });
@@ -240,15 +262,24 @@
 
             // Event listener khusus untuk penambahan baris baru
             Livewire.on('rowAdded', (data) => {
-                console.log('Row added event received, count:', data.count);
-                console.log('Current DOM rows count:', $('tr[wire\\:key*="topic-"]').length);
-                throttledInitWeekSelects();
+                console.log('Row added event received:', data);
+                console.log('Expected rows:', data.count, 'Current DOM rows:', $('tr[wire\\:key*="topic-"]').length);
+                
+                // Tunggu sebentar untuk DOM update, lalu init Select2
+                setTimeout(() => {
+                    console.log('After timeout - DOM rows:', $('tr[wire\\:key*="topic-"]').length);
+                    initWeekSelects();
+                }, 200);
             });
 
             // Event listener untuk penghapusan baris
             Livewire.on('rowRemoved', (data) => {
-                console.log('Row removed event received, count:', data.count);
-                throttledInitWeekSelects();
+                console.log('Row removed event received:', data);
+                console.log('Expected rows:', data.count, 'Current DOM rows:', $('tr[wire\\:key*="topic-"]').length);
+                
+                setTimeout(() => {
+                    initWeekSelects();
+                }, 200);
             });
 
             // Reduced polling - hanya setiap 3 detik

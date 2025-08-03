@@ -83,17 +83,17 @@ class RpsEditPage extends Component
             'minggu_ke' => [], 
         ];
         
-        // Increment forceRefresh untuk memaksa re-render
-        $this->forceRefresh++;
-        $this->select2NeedsReinit = true;
+        // Simple force refresh
+        $this->forceRefresh = microtime(true);
         
         // Log untuk debugging
         logger()->info('Row added. Total topics: ' . count($this->topics) . ' ForceRefresh: ' . $this->forceRefresh);
         
-        // Force re-render dengan multiple cara
-        $this->skipRender = false;
-        $this->dispatch('rowAdded', ['count' => count($this->topics)]);
-        $this->dispatch('$refresh');
+        // Dispatch event dengan delay untuk memastikan DOM terupdate
+        $this->dispatch('rowAdded', [
+            'count' => count($this->topics),
+            'forceRefresh' => $this->forceRefresh
+        ]);
     }
 
     // Method untuk test manual - tambah baris sederhana
@@ -120,22 +120,55 @@ class RpsEditPage extends Component
         unset($this->topics[$index]);
         $this->topics = array_values($this->topics); // Re-index array
         
-        // Increment forceRefresh untuk memaksa re-render
-        $this->forceRefresh++;
-        $this->select2NeedsReinit = true;
+        // Simple force refresh
+        $this->forceRefresh = microtime(true);
         
         // Log untuk debugging
-        logger()->info('Row removed. Total topics: ' . count($this->topics));
+        logger()->info('Row removed. Total topics: ' . count($this->topics) . ' ForceRefresh: ' . $this->forceRefresh);
         
-        // Delay dispatch untuk memastikan DOM ter-update dulu
-        $this->dispatch('rowRemoved', ['count' => count($this->topics)]);
+        // Dispatch event
+        $this->dispatch('rowRemoved', [
+            'count' => count($this->topics),
+            'forceRefresh' => $this->forceRefresh
+        ]);
     }
 
     // Method yang dipanggil ketika topics berubah
     public function updatedTopics()
     {
+        // Pastikan minggu_ke selalu array
+        foreach ($this->topics as $index => $topic) {
+            if (isset($topic['minggu_ke'])) {
+                if (is_string($topic['minggu_ke'])) {
+                    // Jika string JSON, decode
+                    $decoded = json_decode($topic['minggu_ke'], true);
+                    if (is_array($decoded)) {
+                        $this->topics[$index]['minggu_ke'] = $decoded;
+                    }
+                }
+            }
+        }
+        
         $this->forceRefresh++;
         logger()->info('Topics updated. Force refresh: ' . $this->forceRefresh);
+    }
+
+    // Mutator untuk handling minggu_ke
+    public function updatedTopicsMingguKe($value, $key)
+    {
+        $parts = explode('.', $key);
+        $index = $parts[0];
+        
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+            if (is_array($decoded)) {
+                $this->topics[$index]['minggu_ke'] = $decoded;
+            }
+        } else if (is_array($value)) {
+            $this->topics[$index]['minggu_ke'] = $value;
+        }
+        
+        logger()->info("Updated minggu_ke for index {$index}: " . json_encode($this->topics[$index]['minggu_ke']));
     }
 
     // Method untuk debugging - bisa dihapus nanti
