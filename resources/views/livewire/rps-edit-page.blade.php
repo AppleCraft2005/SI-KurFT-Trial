@@ -104,8 +104,8 @@
                                     <input type="number" wire:model="topics.{{$index}}.bobot_penilaian" id="bobot_penilaian"  class="border"></input>
                                 </td>
                                 <td>
-                                    <div wire:ignore.self>
-                                        <select class="select2-weeks" multiple="multiple" data-index="{{ $index }}" wire:key="select-weeks-{{ $index }}">
+                                    <div wire:key="select-container-{{ $index }}-{{ $forceRefresh }}">
+                                        <select class="select2-weeks" multiple="multiple" data-index="{{ $index }}" id="select-weeks-{{ $index }}">
                                             @for ($i = 1 ; $i <= 16 ; $i++)
                                                 <option value="{{$i}}" {{ in_array($i, $topic['minggu_ke']) ? 'selected' : '' }}> {{$i}} </option>
                                             @endfor
@@ -130,7 +130,13 @@
 
             <div class="mt-4 flex justify-between">
                 <button type="button" wire:click="addRow" class="bg-blue-500 text-white px-4 py-2 rounded">Tambah Baris</button>
+                <button type="button" wire:click="debugTopics" class="bg-yellow-500 text-white px-4 py-2 rounded">Debug</button>
                 <button type="submit" class="bg-green-600 text-white px-6 py-2 rounded">Simpan Rencana Mingguan</button>
+            </div>
+            
+            <!-- Debug info -->
+            <div class="mt-2 text-sm text-gray-600">
+                Topics count: {{ count($topics) }} | Force Refresh: {{ $forceRefresh }}
             </div>         
         </form>
     </div>
@@ -164,6 +170,8 @@
 
             // untuk multiselect minggu-ke
             function initWeekSelects() {
+                console.log('Initializing week selects...');
+                
                 // Hapus semua instance Select2 yang sudah ada untuk mencegah duplikasi
                 $('.select2-weeks').each(function() {
                     if ($(this).hasClass('select2-hidden-accessible')) {
@@ -171,21 +179,25 @@
                     }
                 });
                 
-                // Inisialisasi ulang semua select2-weeks
-                $('.select2-weeks').select2({
-                    placeholder: "Pilih Minggu",
-                    allowClear: true,
-                    width: '100%',
-                    dropdownParent: $('body') // Perbaikan untuk dropdown positioning
-                }).off('change.livewire').on('change.livewire', function (e) {
-                    // Stop event propagation untuk mencegah konflik
-                    e.stopPropagation();
+                // Inisialisasi hanya yang belum ter-inisialisasi
+                $('.select2-weeks').not('.select2-hidden-accessible').each(function() {
+                    const $select = $(this);
+                    const index = $select.data('index');
                     
-                    // Ambil index dari atribut data-index
-                    const index = $(this).data('index');
-                    // Kirim data yang dipilih ke properti Livewire yang benar
-                    // Contoh: topics.0.minggu_ke, topics.1.minggu_ke, dst.
-                    @this.set('topics.' + index + '.minggu_ke', $(this).val());
+                    console.log('Initializing select for index:', index);
+                    
+                    $select.select2({
+                        placeholder: "Pilih Minggu",
+                        allowClear: true,
+                        width: '100%',
+                        dropdownParent: $('body')
+                    }).off('change.weekselect').on('change.weekselect', function (e) {
+                        e.stopPropagation();
+                        const currentIndex = $(this).data('index');
+                        const values = $(this).val() || [];
+                        console.log('Week select changed for index:', currentIndex, 'values:', values);
+                        @this.set('topics.' + currentIndex + '.minggu_ke', values);
+                    });
                 });
             }
 
@@ -199,16 +211,25 @@
                 cplSelect.val(cplIds).trigger('change');
             });
 
-            // Perbaikan utama: Gunakan kombinasi event hooks untuk memastikan Select2 terinisialisasi
+            // Hook untuk setiap perubahan DOM - lebih agresif
             Livewire.hook('morph.updated', (el, component) => {
-                // Delay sedikit untuk memastikan DOM sudah terupdate
+                console.log('DOM morphed, reinitializing...');
+                setTimeout(() => {
+                    initWeekSelects();
+                }, 50);
+            });
+            
+            // Hook setelah request selesai
+            Livewire.hook('request.finished', (response, payload) => {
+                console.log('Request finished, reinitializing...');
                 setTimeout(() => {
                     initWeekSelects();
                 }, 100);
             });
 
-            // Tambahan: Hook untuk setelah request selesai (setelah addRow dipanggil)
-            Livewire.hook('request.finished', (response, payload) => {
+            // Hook setelah commit (paling akhir)
+            Livewire.hook('commit', (component, response) => {
+                console.log('Commit hook triggered...');
                 setTimeout(() => {
                     initWeekSelects();
                 }, 150);
@@ -216,6 +237,7 @@
 
             // Event listener khusus untuk penambahan baris baru
             Livewire.on('rowAdded', () => {
+                console.log('Row added event received');
                 setTimeout(() => {
                     initWeekSelects();
                 }, 200);
@@ -223,10 +245,20 @@
 
             // Event listener untuk penghapusan baris
             Livewire.on('rowRemoved', () => {
+                console.log('Row removed event received');
                 setTimeout(() => {
                     initWeekSelects();
                 }, 200);
             });
+
+            // Fallback: Polling untuk memastikan Select2 terinisialisasi
+            setInterval(() => {
+                const uninitializedSelects = $('.select2-weeks').not('.select2-hidden-accessible');
+                if (uninitializedSelects.length > 0) {
+                    console.log('Found uninitialized selects, initializing...');
+                    initWeekSelects();
+                }
+            }, 1000);
 
             // Event delegation untuk button remove - mencegah konflik dengan Select2
             $(document).on('click', '.btn-remove-row', function(e) {
@@ -234,10 +266,37 @@
                 e.stopPropagation();
                 
                 const index = $(this).data('index');
+                console.log('Remove button clicked for index:', index);
+                
                 // Pastikan ini tidak bentrok dengan Select2 events
                 setTimeout(() => {
                     @this.call('removeRow', index);
                 }, 50);
+            });
+
+            // Debug: Monitor DOM changes
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.type === 'childList') {
+                        const addedNodes = Array.from(mutation.addedNodes);
+                        const removedNodes = Array.from(mutation.removedNodes);
+                        
+                        if (addedNodes.some(node => node.nodeType === 1 && (node.matches?.('tr[wire\\:key*="topic-"]') || node.querySelector?.('tr[wire\\:key*="topic-"]')))) {
+                            console.log('New table row detected');
+                            setTimeout(() => initWeekSelects(), 100);
+                        }
+                        
+                        if (removedNodes.some(node => node.nodeType === 1 && (node.matches?.('tr[wire\\:key*="topic-"]') || node.querySelector?.('tr[wire\\:key*="topic-"]')))) {
+                            console.log('Table row removed');
+                        }
+                    }
+                });
+            });
+            
+            // Start observing
+            observer.observe(document.querySelector('tbody'), {
+                childList: true,
+                subtree: true
             });
         });
     </script>

@@ -36,6 +36,9 @@ class RpsEditPage extends Component
     
     // Property untuk memaksa re-render jika diperlukan
     public $forceRefresh = 0;
+    
+    // Property untuk kontrol manual Select2
+    public $select2NeedsReinit = false;
 
     public function mount(RPSModel $rps) {
         $this->rps = $rps;
@@ -80,14 +83,15 @@ class RpsEditPage extends Component
             'minggu_ke' => [], 
         ];
         
-        // Dispatch event ke frontend untuk reinisialisasi Select2
-        $this->dispatch('rowAdded');
-        
-        // Refresh komponen untuk memastikan DOM ter-update
-        $this->dispatch('$refresh');
-        
-        // Backup: increment property untuk trigger re-render
+        // Increment forceRefresh untuk memaksa re-render
         $this->forceRefresh++;
+        $this->select2NeedsReinit = true;
+        
+        // Log untuk debugging
+        logger()->info('Row added. Total topics: ' . count($this->topics));
+        
+        // Delay dispatch untuk memastikan DOM ter-update dulu
+        $this->dispatch('rowAdded', ['count' => count($this->topics)]);
     }
 
     public function removeRow($index) {
@@ -97,20 +101,42 @@ class RpsEditPage extends Component
         unset($this->topics[$index]);
         $this->topics = array_values($this->topics); // Re-index array
         
-        // Dispatch event ke frontend untuk reinisialisasi Select2
-        $this->dispatch('rowRemoved');
-        
-        // Refresh komponen untuk memastikan DOM ter-update
-        $this->dispatch('$refresh');
-        
-        // Backup: increment property untuk trigger re-render
+        // Increment forceRefresh untuk memaksa re-render
         $this->forceRefresh++;
+        $this->select2NeedsReinit = true;
+        
+        // Log untuk debugging
+        logger()->info('Row removed. Total topics: ' . count($this->topics));
+        
+        // Delay dispatch untuk memastikan DOM ter-update dulu
+        $this->dispatch('rowRemoved', ['count' => count($this->topics)]);
+    }
+
+    // Method yang dipanggil ketika topics berubah
+    public function updatedTopics()
+    {
+        $this->forceRefresh++;
+        logger()->info('Topics updated. Force refresh: ' . $this->forceRefresh);
     }
 
     // Method untuk debugging - bisa dihapus nanti
-    public function getTopicsCount()
-    {
+    public function getTopicsCount() {
         return count($this->topics);
+    }
+
+    // Method debugging tambahan
+    public function debugTopics()
+    {
+        logger()->info('Current topics state:', [
+            'count' => count($this->topics),
+            'topics' => $this->topics,
+            'forceRefresh' => $this->forceRefresh
+        ]);
+        
+        return [
+            'count' => count($this->topics),
+            'forceRefresh' => $this->forceRefresh
+        ];
     }
 
     public function saveRps() {
